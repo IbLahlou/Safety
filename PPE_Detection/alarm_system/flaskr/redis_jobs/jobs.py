@@ -45,13 +45,14 @@ def process_detection_queue(class_risk, socketio):
             severity_index = "Moderate"
         else:
             severity_index = "High"
+        payload = pickle.dumps((timestamp, frame_bytes, severity_index, class_counts))
+        r.lpush('history_queue', payload)
         socketio.emit('high_severity_alert', {
             'timestamp': timestamp,
             'severity': frame_severity_normalized,
             'class_counts': class_counts
         })
-        payload = pickle.dumps((timestamp, frame_bytes, severity_index, class_counts))
-        r.lpush('history_queue', payload)
+        
         print(f"Number of people detected: {num_people}")
         print(f"Frame Severity: {frame_severity_normalized:.2f} ({severity_index})")
         print(f"Class counts: {class_counts}")

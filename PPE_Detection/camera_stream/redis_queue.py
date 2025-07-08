@@ -11,7 +11,8 @@ def push_to_queue(timestamp,frame, det_cls, det_cnf, det_xywh ):
 
 
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
+    """
     N = 10
     total_items = r.llen('history_queue')
     start = max(total_items - N, 0)
@@ -28,8 +29,20 @@ if __name__ == "__main__":
             severity = data[2]
             print(f"Item {i}: Timestamp = {timestamp}, Severity = {severity}")
         except Exception as e:
-            print(f"Item {i}: Failed to decode - {e}")
+            print(f"Item {i}: Failed to decode - {e}")"""
+queue_name = 'detection_queue'
+total_items = r.llen(queue_name)
 
+# Get all items from the list
+items = r.lrange(queue_name, 0, total_items - 1)  # from first to last
+
+# Loop through and print each item
+for i, item in enumerate(reversed(items), 1):  # reversed if you want newest first
+    try:
+        data = pickle.loads(item)
+        print(f"Item {i}:", data[0])
+    except Exception as e:
+        print(f"Item {i}: Failed to decode - {e}")
 
 
 
