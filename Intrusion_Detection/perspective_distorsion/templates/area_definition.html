@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask Stream Four Corner Selection Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .stream-input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 300px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: bold;
+        }
+        
+        .btn-connect {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-connect:hover {
+            background: #218838;
+        }
+        
+        .btn-connect:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .btn-capture {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-capture:hover {
+            background: #0056b3;
+        }
+        
+        .btn-capture:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .btn-clear {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-clear:hover {
+            background: #c82333;
+        }
+        
+        .btn-copy {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-copy:hover {
+            background: #e0a800;
+        }
+        
+        .btn-disconnect {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-disconnect:hover {
+            background: #545b62;
+        }
+        
+        .stream-container {
+            position: relative;
+            display: inline-block;
+            border: 2px solid #ddd;
+            margin: 20px 0;
+            background: #000;
+        }
+        
+        #streamImg {
+            display: block;
+            max-width: 800px;
+            max-height: 600px;
+        }
+        
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+            border: 2px solid #ddd;
+            margin: 20px 0;
+            background: #f9f9f9;
+        }
+        
+        #canvas {
+            display: none;
+            cursor: crosshair;
+        }
+        
+        .coordinates {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .coordinates h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .coord-item {
+            margin: 8px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .instructions {
+            background: #e7f3ff;
+            border: 1px solid #b8daff;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .status.streaming {
+            background: #cce5ff;
+            border: 1px solid #b8daff;
+            color: #004085;
+        }
+        
+        .status.selecting {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        
+        .status.complete {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .stream-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        
+        .flask-setup {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .flask-setup pre {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 10px;
+            margin: 10px 0;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ZED 2i Flask Stream Corner Selection Tool</h1>
+
+        
+        <div class="instructions">
+            <strong>Instructions:</strong>
+            <ol>
+                <li>Start your Flask app with the ZED 2i camera stream</li>
+                <li>Enter the Flask stream endpoint URL below (e.g., http://localhost:5000/video_feed)</li>
+                <li>Click "Connect to Stream" to start receiving the camera feed</li>
+                <li>Click "Capture Frame" to take a snapshot from the stream</li>
+                <li>Click on four corners of the area you want to select (in any order)</li>
+                <li>The coordinates will appear below with origin at top-left (0,0)</li>
+                <li>Use "Clear Selection" to start over or "Copy Coordinates" to copy the results</li>
+            </ol>
+        </div>
+        
+        <div class="controls">
+            <input type="text" id="streamUrl" class="stream-input" placeholder="Flask stream URL (e.g., http://localhost:5000/video_feed)" value="http://localhost:5000/video_feed">
+            <button id="connectBtn" class="btn btn-connect">Connect to Stream</button>
+            <button id="captureBtn" class="btn btn-capture" disabled>Capture Frame</button>
+            <button id="disconnectBtn" class="btn btn-disconnect" disabled>Disconnect</button>
+            <button id="clearBtn" class="btn btn-clear">Clear Selection</button>
+            <button id="copyBtn" class="btn btn-copy">Copy Coordinates</button>
+        </div>
+        
+        <div class="stream-container">
+            <img id="streamImg" alt="ZED Camera Stream" style="display: none;">
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="canvas" width="800" height="600"></canvas>
+        </div>
+        
+        <div id="status" class="status">Enter Flask stream URL and click "Connect to Stream"</div>
+        
+        <div class="stream-info" id="streamInfo" style="display: none;">
+            <strong>Stream Status:</strong> <span id="streamStatus">-</span><br>
+            <strong>Frame Size:</strong> <span id="frameSize">-</span><br>
+            <strong>Stream URL:</strong> <span id="currentUrl">-</span>
+        </div>
+        
+        <div class="coordinates">
+            <h3>Corner Coordinates (Top-Left Origin)</h3>
+            <div id="coordList">
+                <div class="coord-item">Corner 1: Not selected</div>
+                <div class="coord-item">Corner 2: Not selected</div>
+                <div class="coord-item">Corner 3: Not selected</div>
+                <div class="coord-item">Corner 4: Not selected</div>
+            </div>
+        </div>
+        <div class="coordinates">
+            <h3>Alternate Perspective Coordinates</h3>
+            <div id="altCoordList">
+                <div class="coord-item">
+                    Corner 1: <input type="number" id="altX1" placeholder="X1"> <input type="number" id="altY1" placeholder="Y1">
+                </div>
+                <div class="coord-item">
+                    Corner 2: <input type="number" id="altX2" placeholder="X2"> <input type="number" id="altY2" placeholder="Y2">
+                </div>
+                <div class="coord-item">
+                    Corner 3: <input type="number" id="altX3" placeholder="X3"> <input type="number" id="altY3" placeholder="Y3">
+                </div>
+                <div class="coord-item">
+                    Corner 4: <input type="number" id="altX4" placeholder="X4"> <input type="number" id="altY4" placeholder="Y4">
+                </div>
+            </div>
+            <button class="btn btn-capture" onclick="saveCoordinates()">Save to JSON</button>
+        </div>
+
+    </div>
+
+    <script>
+        const streamImg = document.getElementById('streamImg');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const streamUrl = document.getElementById('streamUrl');
+        const connectBtn = document.getElementById('connectBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const status = document.getElementById('status');
+        const coordList = document.getElementById('coordList');
+        const streamInfo = document.getElementById('streamInfo');
+        const streamStatus = document.getElementById('streamStatus');
+        const frameSize = document.getElementById('frameSize');
+        const currentUrl = document.getElementById('currentUrl');
+        
+        let isConnected = false;
+        let capturedFrame = null;
+        let corners = [];
+        let frameWidth = 0;
+        let frameHeight = 0;
+        
+        // Connect to Flask stream
+        function connectToStream() {
+            const url = streamUrl.value.trim();
+            if (!url) {
+                updateStatus('Please enter a valid Flask stream URL.', 'error');
+                return;
+            }
+            
+            try {
+                streamImg.onload = function() {
+                    isConnected = true;
+                    streamImg.style.display = 'block';
+                    
+                    connectBtn.disabled = true;
+                    captureBtn.disabled = false;
+                    disconnectBtn.disabled = false;
+                    streamUrl.disabled = true;
+                    
+                    streamInfo.style.display = 'block';
+                    streamStatus.textContent = 'Connected';
+                    currentUrl.textContent = url;
+                    
+                    updateStatus('Connected to ZED camera stream. Click "Capture Frame" when ready.', 'streaming');
+                };
+                
+                streamImg.onerror = function() {
+                    updateStatus('Error: Could not connect to Flask stream. Check URL and Flask app.', 'error');
+                };
+                
+                streamImg.src = url;
+                updateStatus('Connecting to stream...', 'streaming');
+                
+            } catch (err) {
+                console.error('Error connecting to stream:', err);
+                updateStatus('Error: Invalid stream URL format.', 'error');
+            }
+        }
+        
+        // Capture frame from stream
+        function captureFrame() {
+            if (!isConnected) return;
+            
+            // Create a temporary image to get actual dimensions
+            const tempImg = new Image();
+            tempImg.crossOrigin = "anonymous";
+            tempImg.src = "/video_feed_frame";
+            tempImg.onload = function() {
+                const imgWidth = tempImg.naturalWidth;
+                const imgHeight = tempImg.naturalHeight;
+                
+                // Set canvas size to match image resolution
+                canvas.width = imgWidth;
+                canvas.height = imgHeight;
+                frameWidth = imgWidth;
+                frameHeight = imgHeight;
+                
+                // Draw image to canvas
+                ctx.drawImage(tempImg, 0, 0, imgWidth, imgHeight);
+                
+                // Store the captured frame
+                capturedFrame = ctx.getImageData(0, 0, imgWidth, imgHeight);
+                
+                // Show canvas and hide stream
+                streamImg.style.display = 'none';
+                canvas.style.display = 'block';
+                
+                // Update UI
+                captureBtn.disabled = true;
+                frameSize.textContent = `${imgWidth} x ${imgHeight}`;
+                
+                clearSelection();
+                updateStatus('Frame captured from ZED camera! Click on four corners to select your area.', 'selecting');
+            };
+            
+            tempImg.src = streamImg.src;
+        }
+        
+        // Disconnect from stream
+        function disconnectFromStream() {
+            isConnected = false;
+            streamImg.src = '';
+            streamImg.style.display = 'none';
+            canvas.style.display = 'none';
+            
+            connectBtn.disabled = false;
+            captureBtn.disabled = true;
+            disconnectBtn.disabled = true;
+            streamUrl.disabled = false;
+            
+            streamInfo.style.display = 'none';
+            clearSelection();
+            updateStatus('Disconnected from stream. Enter URL and click "Connect to Stream" to begin again.', '');
+        }
+        
+        // Handle canvas clicks
+        canvas.addEventListener('click', function(e) {
+            if (!capturedFrame) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const x = Math.round((e.clientX - rect.left) * scaleX);
+            const y = Math.round((e.clientY - rect.top) * scaleY);
+            
+            if (corners.length < 4) {
+                corners.push({x: x, y: y});
+                drawFrame();
+                updateCoordinateDisplay();
+                updateStatus();
+            }
+        });
+        
+        // Draw captured frame with corners
+        function drawFrame() {
+            if (!capturedFrame) return;
+            
+            // Restore the captured frame
+            ctx.putImageData(capturedFrame, 0, 0);
+            
+            // Draw corners
+            corners.forEach((corner, index) => {
+                // Draw circle
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(corner.x, corner.y, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Draw border
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Draw number
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText((index + 1).toString(), corner.x, corner.y);
+            });
+            
+            // Draw lines between corners if we have more than 1
+            if (corners.length > 1) {
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(corners[0].x, corners[0].y);
+                for (let i = 1; i < corners.length; i++) {
+                    ctx.lineTo(corners[i].x, corners[i].y);
+                }
+                // Close the shape if we have 4 corners
+                if (corners.length === 4) {
+                    ctx.closePath();
+                }
+                ctx.stroke();
+            }
+        }
+        
+        // Update coordinate display
+        function updateCoordinateDisplay() {
+            const coordItems = coordList.children;
+            for (let i = 0; i < 4; i++) {
+                if (i < corners.length) {
+                    coordItems[i].textContent = `Corner ${i + 1}: (${corners[i].x}, ${corners[i].y})`;
+                } else {
+                    coordItems[i].textContent = `Corner ${i + 1}: Not selected`;
+                }
+            }
+        }
+        
+        // Update status
+        function updateStatus(message = null, statusClass = null) {
+            if (message) {
+                status.textContent = message;
+                status.className = statusClass ? `status ${statusClass}` : 'status';
+                return;
+            }
+            
+            if (!capturedFrame) {
+                status.textContent = "Capture a frame to start selecting corners";
+                status.className = "status";
+            } else if (corners.length < 4) {
+                status.textContent = `Click ${4 - corners.length} more corner${4 - corners.length === 1 ? '' : 's'} to complete selection`;
+                status.className = "status selecting";
+            } else {
+                status.textContent = "Selection complete! All 4 corners selected.";
+                status.className = "status complete";
+            }
+        }
+        
+        // Clear selection
+        function clearSelection() {
+            corners = [];
+            updateCoordinateDisplay();
+            updateStatus();
+            if (capturedFrame) {
+                drawFrame();
+            }
+        }
+        
+        // Copy coordinates to clipboard
+        function copyCoordinates() {
+            if (corners.length === 4) {
+                const coordText = corners.map((corner, index) => 
+                    `Corner ${index + 1}: (${corner.x}, ${corner.y})`
+                ).join('\n');
+                
+                navigator.clipboard.writeText(coordText).then(() => {
+                    alert('Coordinates copied to clipboard!');
+                }).catch(() => {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = coordText;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    alert('Coordinates copied to clipboard!');
+                });
+            } else {
+                alert('Please select all 4 corners first!');
+            }
+        }
+        
+        // Handle Enter key in URL input
+        streamUrl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                connectToStream();
+            }
+        });
+        function saveCoordinates() {
+            if (corners.length !== 4) {
+                alert('Please select all 4 corners from the primary view first.');
+                return;
+            }
+
+            const altCoords = [];
+            for (let i = 1; i <= 4; i++) {
+                const x = parseInt(document.getElementById(`altX${i}`).value);
+                const y = parseInt(document.getElementById(`altY${i}`).value);
+                if (isNaN(x) || isNaN(y)) {
+                    alert(`Please fill in all alternate coordinates (Corner ${i})`);
+                    return;
+                }
+                altCoords.push({ x, y });
+            }
+
+            const data = {
+                perspective1: corners,
+                perspective2: altCoords
+            };
+
+            fetch('/save_coordinates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(res => {
+                if (res.ok) {
+                    alert('Coordinates saved to server!');
+                } else {
+                    alert('Failed to save coordinates.');
+                }
+            }).catch(err => {
+                console.error('Error saving coordinates:', err);
+                alert('Error sending data to server.');
+            });
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connectToStream);
+        captureBtn.addEventListener('click', captureFrame);
+        disconnectBtn.addEventListener('click', disconnectFromStream);
+        clearBtn.addEventListener('click', clearSelection);
+        copyBtn.addEventListener('click', copyCoordinates);
+        
+        // Initial setup
+        updateStatus();
+    </script>
+</body>
+</html>
