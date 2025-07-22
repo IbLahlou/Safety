@@ -154,6 +154,34 @@
             font-family: monospace;
         }
         
+        .dimension-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 3px;
+        }
+        
+        .dimension-input label {
+            font-weight: bold;
+            min-width: 80px;
+        }
+        
+        .dimension-input input {
+            padding: 5px 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            width: 100px;
+            font-family: monospace;
+        }
+        
+        .dimension-input .unit {
+            color: #666;
+            font-size: 14px;
+        }
+        
         .instructions {
             background: #e7f3ff;
             border: 1px solid #b8daff;
@@ -236,7 +264,8 @@
                 <li>Click "Capture Frame" to take a snapshot from the stream</li>
                 <li>Click on four corners of the area you want to select (in any order)</li>
                 <li>The coordinates will appear below with origin at top-left (0,0)</li>
-                <li>Use "Clear Selection" to start over or "Copy Coordinates" to copy the results</li>
+                <li>Enter the physical width and height of the selected area</li>
+                <li>Use "Clear Selection" to start over or "Save Data" to save coordinates and dimensions</li>
             </ol>
         </div>
         
@@ -274,25 +303,37 @@
                 <div class="coord-item">Corner 4: Not selected</div>
             </div>
         </div>
+        <!--
         <div class="coordinates">
-            <h3>Alternate Perspective Coordinates</h3>
-            <div id="altCoordList">
-                <div class="coord-item">
-                    Corner 1: <input type="number" id="altX1" placeholder="X1"> <input type="number" id="altY1" placeholder="Y1">
-                </div>
-                <div class="coord-item">
-                    Corner 2: <input type="number" id="altX2" placeholder="X2"> <input type="number" id="altY2" placeholder="Y2">
-                </div>
-                <div class="coord-item">
-                    Corner 3: <input type="number" id="altX3" placeholder="X3"> <input type="number" id="altY3" placeholder="Y3">
-                </div>
-                <div class="coord-item">
-                    Corner 4: <input type="number" id="altX4" placeholder="X4"> <input type="number" id="altY4" placeholder="Y4">
-                </div>
+            <h3>Physical Area Dimensions</h3>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                Enter the real-world width and height of the selected rectangular area:
+            </p>
+            <div class="dimension-input">
+                <label for="areaWidth">Width:</label>
+                <input type="number" id="areaWidth" placeholder="0" step="0.1" min="0">
+                <select id="widthUnit" class="unit">
+                    <option value="mm">mm</option>
+                    <option value="cm">cm</option>
+                    <option value="m">m</option>
+                    <option value="inches">inches</option>
+                    <option value="feet">feet</option>
+                </select>
             </div>
-            <button class="btn btn-capture" onclick="saveCoordinates()">Save to JSON</button>
-        </div>
-
+            <div class="dimension-input">
+                <label for="areaHeight">Height:</label>
+                <input type="number" id="areaHeight" placeholder="0" step="0.1" min="0">
+                <select id="heightUnit" class="unit">
+                    <option value="mm">mm</option>
+                    <option value="cm">cm</option>
+                    <option value="m">m</option>
+                    <option value="inches">inches</option>
+                    <option value="feet">feet</option>
+                </select>
+            </div>
+            
+        </div>-->
+        <button class="btn btn-capture" onclick="saveData()">Save Data</button>
     </div>
 
     <script>
@@ -503,7 +544,7 @@
                 status.textContent = `Click ${4 - corners.length} more corner${4 - corners.length === 1 ? '' : 's'} to complete selection`;
                 status.className = "status selecting";
             } else {
-                status.textContent = "Selection complete! All 4 corners selected.";
+                status.textContent = "Selection complete! Enter dimensions and save data.";
                 status.className = "status complete";
             }
         }
@@ -542,32 +583,33 @@
             }
         }
         
-        // Handle Enter key in URL input
-        streamUrl.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                connectToStream();
-            }
-        });
-        function saveCoordinates() {
+        // Save data with coordinates and dimensions
+        function saveData() {
             if (corners.length !== 4) {
-                alert('Please select all 4 corners from the primary view first.');
+                alert('Please select all 4 corners first.');
+                return;
+            }
+            /*
+            const width = parseFloat(document.getElementById('areaWidth').value);
+            const height = parseFloat(document.getElementById('areaHeight').value);
+            const widthUnit = document.getElementById('widthUnit').value;
+            const heightUnit = document.getElementById('heightUnit').value;
+
+            if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+                alert('Please enter valid width and height values.');
                 return;
             }
 
-            const altCoords = [];
-            for (let i = 1; i <= 4; i++) {
-                const x = parseInt(document.getElementById(`altX${i}`).value);
-                const y = parseInt(document.getElementById(`altY${i}`).value);
-                if (isNaN(x) || isNaN(y)) {
-                    alert(`Please fill in all alternate coordinates (Corner ${i})`);
-                    return;
-                }
-                altCoords.push({ x, y });
-            }
-
+            // Create dimensions array in coordinate format for perspective2
+            const dimensionsAsCoords = [
+                { x: 0, y: 0 },                    // Top-left origin
+                { x: width -1, y: 0 },                // Top-right (width, 0)
+                { x: width-1, y: height-1 },           // Bottom-right (width, height)
+                { x: 0, y: height-1 }                // Bottom-left (0, height)
+            ];
+            */
             const data = {
-                perspective1: corners,
-                perspective2: altCoords
+                perspective1: corners,              // Image coordinates
             };
 
             fetch('/save_coordinates', {
@@ -578,15 +620,24 @@
                 body: JSON.stringify(data)
             }).then(res => {
                 if (res.ok) {
-                    alert('Coordinates saved to server!');
+                    return res.json();
                 } else {
-                    alert('Failed to save coordinates.');
+                    throw new Error('Failed to save data');
                 }
+            }).then(result => {
+                alert(`Data saved successfully as ${result.zone_id}!`);
             }).catch(err => {
-                console.error('Error saving coordinates:', err);
+                console.error('Error saving data:', err);
                 alert('Error sending data to server.');
             });
         }
+        
+        // Handle Enter key in URL input
+        streamUrl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                connectToStream();
+            }
+        });
 
         // Event listeners
         connectBtn.addEventListener('click', connectToStream);
