@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection Dashboard</title>
+    <style>
+        /* Modern design inspired by the PPE dashboard */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #2d3748;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-align: center;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin: 0 auto 1rem;
+        }
+        
+        .stat-icon.zones {
+            background: linear-gradient(135deg, #3742fa, #2f3542);
+            color: white;
+        }
+        
+        .stat-icon.active {
+            background: linear-gradient(135deg, #2ed573, #1e90ff);
+            color: white;
+        }
+        
+        .stat-icon.detections {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+        }
+        
+        .stat-icon.status {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #2d3748;
+            margin: 0.5rem 0;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-weight: 500;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+
+        .video-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .video-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .video-header h3 {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #2d3748;
+        }
+
+        .video-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .status-live { 
+            color: #16a34a; 
+        }
+        
+        .status-live .status-indicator {
+            background: #16a34a;
+            animation: pulse-green 2s infinite;
+        }
+        
+        .status-offline { 
+            color: #dc2626; 
+        }
+        
+        .status-offline .status-indicator {
+            background: #dc2626;
+        }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(22, 163, 74, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+        }
+        
+        .video-container {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            min-height: 400px;
+        }
+
+        #videoFeed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .controls-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .control-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .control-panel h3 {
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+            color: #2d3748;
+            font-weight: 700;
+        }
+
+        .reload-btn {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .reload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .reload-btn:active {
+            transform: translateY(0);
+        }
+
+        .reload-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .zones-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .zones-panel h3 {
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+            color: #2d3748;
+            font-weight: 700;
+        }
+
+        .zones-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .zone-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .zone-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .zone-name {
+            font-weight: 600;
+            color: #2d3748;
+            text-transform: capitalize;
+        }
+
+        .zone-count {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .zone-active {
+            border-left-color: #16a34a;
+            background: rgba(240, 253, 244, 0.8);
+        }
+
+        .zone-inactive {
+            border-left-color: #9ca3af;
+            background: rgba(249, 250, 251, 0.8);
+        }
+
+        .zone-alert {
+            border-left-color: #dc2626;
+            background: rgba(254, 226, 226, 0.8);
+            animation: pulse-alert 2s infinite;
+        }
+
+        .zone-alert .zone-count {
+            background: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+        }
+
+        @keyframes pulse-alert {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+
+        .message {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+            font-weight: 500;
+            border: 1px solid;
+        }
+
+        .message.success {
+            background: rgba(240, 253, 244, 0.8);
+            border-color: rgba(22, 163, 74, 0.3);
+            color: #16a34a;
+        }
+
+        .message.error {
+            background: rgba(254, 226, 226, 0.8);
+            border-color: rgba(220, 38, 38, 0.3);
+            color: #dc2626;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Custom scrollbar */
+        .zones-list::-webkit-scrollbar { width: 6px; }
+        .zones-list::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); border-radius: 3px; }
+        .zones-list::-webkit-scrollbar-thumb { background: rgba(102, 126, 234, 0.5); border-radius: 3px; }
+        .zones-list::-webkit-scrollbar-thumb:hover { background: rgba(102, 126, 234, 0.7); }
+
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            .zones-panel {
+                max-height: 300px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header h1 { font-size: 2rem; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .stat-card { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Detection Dashboard</h1>
+            <p>Real-time person detection and zone monitoring</p>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon zones">📍</div>
+                <div class="stat-value" id="totalZones">0</div>
+                <div class="stat-label">Total Zones</div>
+            </div>
+
+            <div class="stat-card" style="display: none;">
+                <div class="stat-icon active">✅</div>
+                <div class="stat-value" id="activeZones">0</div>
+                <div class="stat-label">Active Zones</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon detections">👥</div>
+                <div class="stat-value" id="totalDetections">0</div>
+                <div class="stat-label">Total Detections</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon status">📡</div>
+                <div class="stat-value" id="systemStatus">●</div>
+                <div class="stat-label">System Status</div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Video Section -->
+            <div class="video-section">
+                <div class="video-header">
+                    <h3>🎥 Live Video Feed</h3>
+                    <div class="video-status">
+                        <div class="status-indicator"></div>
+                        <span id="streamStatus" class="status-live">LIVE</span>
+                    </div>
+                </div>
+                <div class="video-container">
+                    <img id="videoFeed" src="/video_feed_with_detection" alt="Live Video Feed">
+                </div>
+            </div>
+
+            <!-- Controls and Zones Section -->
+            <div class="controls-section">
+                <!-- Control Panel -->
+                <div class="control-panel">
+                    <h3>⚙️ Controls</h3>
+                    <div id="messageArea"></div>
+                    <button id="reloadBtn" class="reload-btn" onclick="reloadZones()">
+                        <span id="reloadText">🔄 Reload Detection Zones</span>
+                    </button>
+                </div>
+
+                <!-- Zones Panel -->
+                <div class="zones-panel">
+                    <h3>📍 Detection Zones</h3>
+                    <div class="zones-list" id="zonesList">
+                        <div class="zone-item zone-inactive">
+                            <span class="zone-name">No zones loaded</span>
+                            <span class="zone-count">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let zones = {};
+        let detectionCounts = {};
+
+        // Initialize the dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadZones();
+            setupVideoMonitoring();
+            
+            // Auto-reload zones every 30 seconds to sync with any changes
+            setInterval(loadZones, 30000);
+        });
+
+        // Function to reload zones from server
+        async function reloadZones() {
+            const reloadBtn = document.getElementById('reloadBtn');
+            const reloadText = document.getElementById('reloadText');
+            const messageArea = document.getElementById('messageArea');
+            
+            // Disable button and show loading
+            reloadBtn.disabled = true;
+            reloadText.innerHTML = '<span class="loading"></span> Reloading...';
+            
+            try {
+                const response = await fetch('/reload_zones', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showMessage(`Successfully loaded ${data.zones_loaded} zones`, 'success');
+                    zones = {};
+                    data.zone_ids.forEach(zoneId => {
+                        zones[zoneId] = { active: true, count: 0 };
+                    });
+                    updateZonesDisplay();
+                    updateStats();
+                } else {
+                    showMessage('Failed to reload zones', 'error');
+                }
+            } catch (error) {
+                console.error('Error reloading zones:', error);
+                showMessage('Error connecting to server', 'error');
+            } finally {
+                // Re-enable button
+                reloadBtn.disabled = false;
+                reloadText.innerHTML = '🔄 Reload Detection Zones';
+            }
+        }
+
+        // Load zones on page load
+        async function loadZones() {
+            try {
+                // Try to reload zones to get current state
+                const response = await fetch('/reload_zones', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    zones = {};
+                    data.zone_ids.forEach(zoneId => {
+                        zones[zoneId] = { active: true, count: Math.floor(Math.random() * 3) }; // Random count for demo
+                    });
+                    updateZonesDisplay();
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Error loading zones:', error);
+            }
+        }
+
+        // Update the zones display
+        function updateZonesDisplay() {
+            const zonesList = document.getElementById('zonesList');
+            
+            const zoneKeys = Object.keys(zones);
+            
+            if (zoneKeys.length === 0) {
+                zonesList.innerHTML = `
+                    <div class="zone-item zone-inactive">
+                        <span class="zone-name">No zones loaded</span>
+                        <span class="zone-count">-</span>
+                    </div>
+                `;
+                return;
+            }
+
+            let zonesHtml = '';
+
+            zoneKeys.forEach((zoneId, index) => {
+                const zone = zones[zoneId];
+                const count = zone.count || 0;
+                
+                const zoneClass = count > 0 ? 'zone-alert' : (zone.active ? 'zone-active' : 'zone-inactive');
+                const displayName = zoneId.replace('_', ' ');
+                
+                zonesHtml += `
+                    <div class="zone-item ${zoneClass}">
+                        <span class="zone-name">${displayName}</span>
+                        <span class="zone-count">${count}</span>
+                    </div>
+                `;
+            });
+
+            zonesList.innerHTML = zonesHtml;
+        }
+
+        // Update stats cards
+        function updateStats() {
+            const totalZones = document.getElementById('totalZones');
+            const activeZones = document.getElementById('activeZones');
+            const totalDetections = document.getElementById('totalDetections');
+            const systemStatus = document.getElementById('systemStatus');
+            
+            const zoneKeys = Object.keys(zones);
+            let activeCount = 0;
+            let detectionSum = 0;
+            
+            zoneKeys.forEach(zoneId => {
+                const zone = zones[zoneId];
+                const count = zone.count || 0;
+                if (count > 0) activeCount++;
+                detectionSum += count;
+            });
+            
+            totalZones.textContent = zoneKeys.length;
+            activeZones.textContent = activeCount;
+            totalDetections.textContent = detectionSum;
+            systemStatus.textContent = '●';
+            systemStatus.style.color = '#16a34a';
+        }
+
+        // Show message to user
+        function showMessage(message, type = 'success') {
+            const messageArea = document.getElementById('messageArea');
+            messageArea.innerHTML = `<div class="message ${type}">${message}</div>`;
+            
+            // Auto-hide message after 3 seconds
+            setTimeout(() => {
+                messageArea.innerHTML = '';
+            }, 3000);
+        }
+
+        // Monitor video stream status
+        function setupVideoMonitoring() {
+            const videoFeed = document.getElementById('videoFeed');
+            const streamStatus = document.getElementById('streamStatus');
+            const statusIndicator = streamStatus.previousElementSibling;
+            
+            videoFeed.onload = function() {
+                streamStatus.textContent = 'LIVE';
+                streamStatus.className = 'status-live';
+                statusIndicator.style.background = '#16a34a';
+            };
+            
+            videoFeed.onerror = function() {
+                streamStatus.textContent = 'OFFLINE';
+                streamStatus.className = 'status-offline';
+                statusIndicator.style.background = '#dc2626';
+            };
+        }
+
+        function fetchDetectionUpdates() {
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/current_detections');
+                    const data = await response.json();
+                    
+                    // Update zones with real detection counts
+                    Object.keys(zones).forEach(zoneId => {
+                        zones[zoneId].count = data.detections[zoneId] || 0;
+                    });
+                    
+                    updateZonesDisplay();
+                    updateStats();
+                } catch (error) {
+                    console.error('Error fetching detection data:', error);
+                }
+            }, 1000); // Update every second
+        }
+
+        // Start real updates instead of simulation
+        setTimeout(fetchDetectionUpdates, 2000);
+        
+    </script>
+</body>
+</html>

@@ -6,9 +6,10 @@
     <title>Flask Stream Four Corner Selection Tool</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #2d3748;
         }
         
         .container {
@@ -252,22 +253,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>ZED 2i Flask Stream Corner Selection Tool</h1>
+        <h1>Corner Selection Tool</h1>
 
         
-        <div class="instructions">
-            <strong>Instructions:</strong>
-            <ol>
-                <li>Start your Flask app with the ZED 2i camera stream</li>
-                <li>Enter the Flask stream endpoint URL below (e.g., http://localhost:5000/video_feed)</li>
-                <li>Click "Connect to Stream" to start receiving the camera feed</li>
-                <li>Click "Capture Frame" to take a snapshot from the stream</li>
-                <li>Click on four corners of the area you want to select (in any order)</li>
-                <li>The coordinates will appear below with origin at top-left (0,0)</li>
-                <li>Enter the physical width and height of the selected area</li>
-                <li>Use "Clear Selection" to start over or "Save Data" to save coordinates and dimensions</li>
-            </ol>
-        </div>
+
         
         <div class="controls">
             <input type="text" id="streamUrl" class="stream-input" placeholder="Flask stream URL (e.g., http://localhost:5000/video_feed)" value="http://localhost:5000/video_feed">
@@ -303,36 +292,6 @@
                 <div class="coord-item">Corner 4: Not selected</div>
             </div>
         </div>
-        <!--
-        <div class="coordinates">
-            <h3>Physical Area Dimensions</h3>
-            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
-                Enter the real-world width and height of the selected rectangular area:
-            </p>
-            <div class="dimension-input">
-                <label for="areaWidth">Width:</label>
-                <input type="number" id="areaWidth" placeholder="0" step="0.1" min="0">
-                <select id="widthUnit" class="unit">
-                    <option value="mm">mm</option>
-                    <option value="cm">cm</option>
-                    <option value="m">m</option>
-                    <option value="inches">inches</option>
-                    <option value="feet">feet</option>
-                </select>
-            </div>
-            <div class="dimension-input">
-                <label for="areaHeight">Height:</label>
-                <input type="number" id="areaHeight" placeholder="0" step="0.1" min="0">
-                <select id="heightUnit" class="unit">
-                    <option value="mm">mm</option>
-                    <option value="cm">cm</option>
-                    <option value="m">m</option>
-                    <option value="inches">inches</option>
-                    <option value="feet">feet</option>
-                </select>
-            </div>
-            
-        </div>-->
         <button class="btn btn-capture" onclick="saveData()">Save Data</button>
     </div>
 

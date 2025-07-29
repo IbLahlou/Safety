@@ -2,7 +2,6 @@
 import threading
 import argparse
 import torch
-
 from PPE_Detection.camera_stream.custom_detector import start_camera
 from PPE_Detection.alarm_system.flaskr import create_app
 
