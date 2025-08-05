@@ -1,203 +1,39 @@
-name: Simple Safety Test
+name: Simple PPE Test
 
 on:
-  workflow_dispatch:  # Manual trigger only - no automatic runs
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  basic-test:
-    name: Basic Safety System Test
+  test:
     runs-on: self-hosted
     timeout-minutes: 10
     
     steps:
-      # ===================================
-      # STEP 1: Basic System Check
-      # ===================================
-      - name: System Information
-        run: |
-          echo "=== SYSTEM INFO ==="
-          echo "Current user: $(whoami)"
-          echo "Current directory: $(pwd)"
-          echo "Date: $(date)"
-          echo "Python version: $(python3 --version)"
-          echo "Available disk space:"
-          df -h
-          echo ""
-          
-      # ===================================
-      # STEP 2: Find Your Safety Project
-      # ===================================
-      - name: Locate Safety Project
-        run: |
-          echo "=== FINDING SAFETY PROJECT ==="
-          echo "Looking for safety folder..."
-          find /home -name "safety" -type d 2>/dev/null | head -5
-          echo ""
-          echo "Current location contents:"
-          ls -la
-          echo ""
-          
-      # ===================================
-      # STEP 3: Check Safety Directory
-      # ===================================
-      - name: Check Safety Directory
-        run: |
-          echo "=== SAFETY DIRECTORY CHECK ==="
-          SAFETY_PATH="/home/sysadmin01/Desktop/PFE/safety"
-          
-          if [ -d "$SAFETY_PATH" ]; then
-            echo "✅ Safety directory found at: $SAFETY_PATH"
-            echo "Contents:"
-            ls -la "$SAFETY_PATH" | head -10
-          else
-            echo "❌ Safety directory not found at expected location"
-            echo "Searching for it..."
-            find /home -name "safety" -type d 2>/dev/null
-          fi
-          echo ""
-          
-      # ===================================
-      # STEP 4: Check Python Environment
-      # ===================================
-      - name: Check Python Environment
-        run: |
-          echo "=== PYTHON ENVIRONMENT CHECK ==="
-          SAFETY_PATH="/home/sysadmin01/Desktop/PFE/safety"
-          
-          if [ -d "$SAFETY_PATH" ]; then
-            cd "$SAFETY_PATH"
-            echo "Current directory: $(pwd)"
-            
-            if [ -f ".venv/bin/activate" ]; then
-              echo "✅ Virtual environment found"
-              source .venv/bin/activate
-              echo "✅ Virtual environment activated"
-              echo "Python path: $(which python)"
-              echo "Pip list (first 10 packages):"
-              pip list | head -10
-            else
-              echo "❌ Virtual environment not found"
-              echo "Looking for .venv directory..."
-              find . -name ".venv" -type d 2>/dev/null
-            fi
-          else
-            echo "❌ Cannot proceed - safety directory not found"
-          fi
-          echo ""
-          
-      # ===================================
-      # STEP 5: Check Application Files
-      # ===================================
-      - name: Check Application Files
-        run: |
-          echo "=== APPLICATION FILES CHECK ==="
-          SAFETY_PATH="/home/sysadmin01/Desktop/PFE/safety"
-          
-          if [ -d "$SAFETY_PATH" ]; then
-            cd "$SAFETY_PATH"
-            
-            echo "🔍 Intrusion Detection App:"
-            INTRUSION_APP="/home/sysadmin01/Desktop/PFE/safety/Intrusion_Detection/perspective_distorsion/app.py"
-            if [ -f "$INTRUSION_APP" ]; then
-              echo "✅ Found: $INTRUSION_APP"
-              echo "Size: $(ls -lh "$INTRUSION_APP" | awk '{print $5}')"
-            else
-              echo "❌ Not found: $INTRUSION_APP"
-              echo "Looking for app.py files..."
-              find . -name "app.py" -type f 2>/dev/null
-            fi
-            
-            echo ""
-            echo "🦺 PPE Detection Weights:"
-            PPE_WEIGHTS="/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt"
-            if [ -f "$PPE_WEIGHTS" ]; then
-              echo "✅ Found: $PPE_WEIGHTS"
-              echo "Size: $(ls -lh "$PPE_WEIGHTS" | awk '{print $5}')"
-            else
-              echo "❌ Not found: $PPE_WEIGHTS"
-              echo "Looking for .pt files..."
-              find . -name "*.pt" -type f 2>/dev/null | head -5
-            fi
-          fi
-          echo ""
-          
-      # ===================================
-      # STEP 6: Simple Python Test
-      # ===================================
-      - name: Simple Python Test
-        run: |
-          echo "=== PYTHON IMPORT TEST ==="
-          SAFETY_PATH="/home/sysadmin01/Desktop/PFE/safety"
-          
-          if [ -d "$SAFETY_PATH" ]; then
-            cd "$SAFETY_PATH"
-            
-            if [ -f ".venv/bin/activate" ]; then
-              source .venv/bin/activate
-              
-              echo "Testing basic imports..."
-              
-              # Test Flask
-              if python -c "import flask; print('✅ Flask available')" 2>/dev/null; then
-                echo "✅ Flask: OK"
-              else
-                echo "❌ Flask: Not available"
-              fi
-              
-              # Test OpenCV
-              if python -c "import cv2; print('✅ OpenCV available')" 2>/dev/null; then
-                echo "✅ OpenCV: OK"
-              else
-                echo "❌ OpenCV: Not available"
-              fi
-              
-              # Test basic modules
-              python -c "
-import sys
-print('✅ Python sys module working')
-print('Python executable:', sys.executable)
-print('Python version:', sys.version)
-              "
-              
-            else
-              echo "❌ Cannot test - virtual environment not found"
-            fi
-          fi
-          echo ""
-          
-      # ===================================
-      # STEP 7: Network Test
-      # ===================================
-      - name: Network Test
-        run: |
-          echo "=== NETWORK TEST ==="
-          echo "Testing internet connectivity..."
-          
-          if ping -c 1 google.com >/dev/null 2>&1; then
-            echo "✅ Internet connection: OK"
-          else
-            echo "❌ Internet connection: Failed"
-          fi
-          
-          echo "Testing local ports..."
-          netstat -tuln | grep -E ":500[0-9]" || echo "No Flask apps currently running"
-          echo ""
-          
-      # ===================================
-      # STEP 8: Summary Report
-      # ===================================
-      - name: Final Summary
-        run: |
-          echo "=================================="
-          echo "🎉 WORKFLOW COMPLETED SUCCESSFULLY"
-          echo "=================================="
-          echo "This basic test workflow ran without errors!"
-          echo "Next steps:"
-          echo "1. ✅ Your GitHub Actions runner is working"
-          echo "2. ✅ Your system can run workflows"
-          echo "3. 🔄 You can now try more advanced workflows"
-          echo ""
-          echo "Time completed: $(date)"
-          echo "=================================="
+    - name: Start PPE App
+      run: |
+        cd /home/sysadmin01/Desktop/PFE/safety
+        source .venv/bin/activate
+        nohup uv run python -m PPE_Detection.alarm_system.flaskr.main --weights "/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt" > /tmp/ppe.log 2>&1 &
+        echo $! > /tmp/ppe.pid
+        sleep 30
+        
+    - name: Check Status
+      run: |
+        PID=$(cat /tmp/ppe.pid)
+        if kill -0 $PID 2>/dev/null; then
+          echo "App is running!"
+          ps -p $PID
+        else
+          echo "App failed to start"
+          cat /tmp/ppe.log
+        fi
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        if [ -f /tmp/ppe.pid ]; then
+          PID=$(cat /tmp/ppe.pid)
+          kill $PID 2>/dev/null || true
+          kill -9 $PID 2>/dev/null || true
+        fi
+        rm -f /tmp/ppe.pid /tmp/ppe.log
