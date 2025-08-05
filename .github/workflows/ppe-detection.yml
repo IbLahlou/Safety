@@ -11,7 +11,7 @@ jobs:
     steps:
     - name: Start PPE App
       run: |
-        cd /home/sysadmin01/Desktop/PFE/safety
+        cd /home/sysadmin01/Desktop/Safety-detector/safety
         source .venv/bin/activate
         nohup uv run python -m PPE_Detection.alarm_system.flaskr.main --weights "/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt" > /tmp/ppe.log 2>&1 &
         echo $! > /tmp/ppe.pid
