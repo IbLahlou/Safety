@@ -1,4 +1,4 @@
-name: PPE Test
+name: Simple PPE Test
 
 on:
   workflow_dispatch:
@@ -9,31 +9,80 @@ jobs:
     timeout-minutes: 10
     
     steps:
+    - name: Pre-cleanup
+      run: |
+        echo "Killing any existing processes on port 5000..."
+        pkill -f "flaskr.main" || true
+        pkill -f "PPE_Detection" || true
+        lsof -ti:5000 | xargs kill -9 2>/dev/null || true
+        sleep 5
+        
+    - name: Check YOLO Model
+      run: |
+        cd /home/sysadmin01/Desktop/PFE/safety
+        WEIGHTS="/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt"
+        if [ -f "$WEIGHTS" ]; then
+          echo "✅ Weights file found: $(ls -lh "$WEIGHTS")"
+        else
+          echo "❌ Weights file not found"
+          find . -name "*.pt" -type f | head -5
+          exit 1
+        fi
+        
     - name: Start PPE App
       run: |
         cd /home/sysadmin01/Desktop/PFE/safety
         source .venv/bin/activate
-        nohup uv run python -m PPE_Detection.alarm_system.flaskr.main --weights "/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt" > /tmp/ppe.log 2>&1 &
+        
+        # Set PyTorch to allow unsafe loading (temporary fix)
+        export TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=False
+        
+        # Start on different port to avoid conflicts
+        nohup uv run python -c "
+import os
+os.environ['FLASK_PORT'] = '5001'
+from PPE_Detection.alarm_system.flaskr.main import run_flask
+run_flask()
+        " > /tmp/ppe.log 2>&1 &
+        
         echo $! > /tmp/ppe.pid
+        echo "Started PPE app with PID: $(cat /tmp/ppe.pid)"
         sleep 30
         
     - name: Check Status
       run: |
-        PID=$(cat /tmp/ppe.pid)
-        if kill -0 $PID 2>/dev/null; then
-          echo "App is running!"
-          ps -p $PID
+        if [ -f /tmp/ppe.pid ]; then
+          PID=$(cat /tmp/ppe.pid)
+          if kill -0 $PID 2>/dev/null; then
+            echo "✅ App is running!"
+            echo "Process info:"
+            ps -p $PID -o pid,ppid,pcpu,pmem,cmd
+            
+            echo "Checking ports:"
+            netstat -tuln | grep -E ":500[0-9]" || echo "No Flask ports active"
+            
+            echo "Last 20 lines of log:"
+            tail -20 /tmp/ppe.log
+          else
+            echo "❌ App failed to start"
+            echo "Full log:"
+            cat /tmp/ppe.log
+          fi
         else
-          echo "App failed to start"
-          cat /tmp/ppe.log
+          echo "❌ No PID file found"
         fi
         
     - name: Cleanup
       if: always()
       run: |
+        echo "Cleaning up..."
         if [ -f /tmp/ppe.pid ]; then
           PID=$(cat /tmp/ppe.pid)
           kill $PID 2>/dev/null || true
+          sleep 3
           kill -9 $PID 2>/dev/null || true
         fi
+        pkill -f "flaskr.main" || true
+        pkill -f "PPE_Detection" || true
         rm -f /tmp/ppe.pid /tmp/ppe.log
+        echo "✅ Cleanup completed"
