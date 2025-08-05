@@ -1,4 +1,4 @@
-name: Simple PPE Test
+name: PPE Test
 
 on:
   workflow_dispatch:
