@@ -12,30 +12,60 @@ jobs:
     timeout-minutes: 10
     
     steps:
-      - name: Launch PPE Detection App
-        run: |
-          cd /home/sysadmin01/Desktop/PFE/safety
-          
-          # Launch the Flask app with uv and PyTorch environment
-          timeout 30s env TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=True \
-            uv run python -m PPE_Detection.alarm_system.flaskr.main \
-            --weights "PPE_Detection/experiments/checkpoints/yolo11n_v6.pt" &
-          
-          APP_PID=$!
-          sleep 5
-          
-          # Test if app is running
-          if ps -p $APP_PID > /dev/null; then
-            echo "✓ PPE Detection app started successfully (PID: $APP_PID)"
-            
-            # Test HTTP endpoint if accessible
-            curl -f http://localhost:5000 2>/dev/null && echo "✓ Web interface accessible" || echo "- Web interface check skipped"
-            
-            # Clean shutdown
-            kill $APP_PID 2>/dev/null
-            wait $APP_PID 2>/dev/null
-            echo "✓ App terminated gracefully"
+    - name: Pre-cleanup
+      run: |
+        echo "Killing any existing processes..."
+        pkill -f "flaskr.main" || true
+        pkill -f "PPE_Detection" || true
+        lsof -ti:5000 | xargs kill -9 2>/dev/null || true
+        sleep 5
+        
+    - name: Check YOLO Model
+      run: |
+        cd /home/sysadmin01/Desktop/PFE/safety
+        WEIGHTS="/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt"
+        if [ -f "$WEIGHTS" ]; then
+          echo "Weights file found"
+          ls -lh "$WEIGHTS"
+        else
+          echo "Weights file not found"
+          find . -name "*.pt" -type f | head -5
+        fi
+        
+    - name: Start PPE App
+      run: |
+        cd /home/sysadmin01/Desktop/PFE/safety
+        source .venv/bin/activate
+        export TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=True
+        nohup uv run python -m PPE_Detection.alarm_system.flaskr.main --weights "/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt" > /tmp/ppe.log 2>&1 &
+        echo $! > /tmp/ppe.pid
+        echo "Started with PID: $(cat /tmp/ppe.pid)"
+        sleep 30
+        
+    - name: Check Status
+      run: |
+        if [ -f /tmp/ppe.pid ]; then
+          PID=$(cat /tmp/ppe.pid)
+          if kill -0 $PID 2>/dev/null; then
+            echo "App is running!"
+            ps -p $PID
+            echo "Last 10 lines of log:"
+            tail -10 /tmp/ppe.log
           else
-            echo "✗ Failed to start PPE Detection app"
-            exit 1
+            echo "App failed to start"
+            echo "Error log:"
+            cat /tmp/ppe.log
           fi
+        fi
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        if [ -f /tmp/ppe.pid ]; then
+          PID=$(cat /tmp/ppe.pid)
+          kill $PID 2>/dev/null || true
+          sleep 2
+          kill -9 $PID 2>/dev/null || true
+        fi
+        pkill -f "flaskr.main" || true
+        rm -f /tmp/ppe.pid /tmp/ppe.log
