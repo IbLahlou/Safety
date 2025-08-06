@@ -1,0 +1,80 @@
+name: Intrusion Detection App Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    
+    steps:
+      - name: Pre-cleanup
+        run: |
+          echo "Killing any existing processes..."
+          pkill -f "perspective_distorsion" || true
+          pkill -f "Intrusion_Detection" || true
+          lsof -ti:5000 | xargs kill -9 2>/dev/null || true
+          sleep 5
+
+      - name: Check Detection Models
+        run: |
+          cd /home/sysladmin01/Desktop/PFE/safety/Intrusion_Detection/perspective_distorsion
+          echo "Checking for model files..."
+          find . -name "*.pt" -o -name "*.pth" -o -name "*.pkl" -type f | head -10
+          echo "App structure:"
+          ls -la
+
+      - name: Start Intrusion Detection App
+        run: |
+          cd /home/sysadmin01/Desktop/PFE/safety
+          source .venv/bin/activate || echo "No venv found, continuing..."
+          export PYTHONPATH="/home/sysadmin01/Desktop/PFE/safety:$PYTHONPATH"
+          nohup uv run /home/sysadmin01/Desktop/PFE/safety/Intrusion_Detection/perspective_distorsion/app.py > /tmp/intrusion.log 2>&1 &
+          echo $! > /tmp/intrusion.pid
+          echo "Started with PID: $(cat /tmp/intrusion.pid)"
+          sleep 30
+
+      - name: Check Status
+        run: |
+          if [ -f /tmp/intrusion.pid ]; then
+            PID=$(cat /tmp/intrusion.pid)
+            if kill -0 $PID 2>/dev/null; then
+              echo "App is running!"
+              ps -p $PID
+              echo "Checking port 5000..."
+              netstat -tlnp | grep :5000 || echo "Port 5000 not found"
+              echo "Last 10 lines of log:"
+              tail -10 /tmp/intrusion.log
+            else
+              echo "App failed to start"
+              echo "Error log:"
+              cat /tmp/intrusion.log
+              exit 1
+            fi
+          fi
+
+      - name: Test API Endpoint
+        run: |
+          sleep 5
+          echo "Testing detection dashboard endpoint..."
+          curl -f http://localhost:5000/detection_dashboard || echo "Endpoint test failed"
+          curl -f http://localhost:5000/ || echo "Root endpoint test failed"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f /tmp/intrusion.pid ]; then
+            PID=$(cat /tmp/intrusion.pid)
+            kill $PID 2>/dev/null || true
+            sleep 2
+            kill -9 $PID 2>/dev/null || true
+          fi
+          pkill -f "perspective_distorsion" || true
+          pkill -f "Intrusion_Detection" || true
+          lsof -ti:5000 | xargs kill -9 2>/dev/null || true
+          rm -f /tmp/intrusion.pid /tmp/intrusion.log
