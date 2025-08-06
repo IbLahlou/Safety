@@ -1,58 +1,4 @@
-- name: Fix MongoDB Connection
-      run: |
-        cd /home/sysadmin01/Desktop/PFE/safety
-        echo "Checking MongoDB connection requirement..."
-        
-        # Create a mock/bypass for MongoDB connection
-        echo "Creating MongoDB bypass..."
-        cat > /tmp/mongo_bypass.py << 'EOF'
-# Mock MongoDB client to bypass connection issues
-class MockCollection:
-    def insert_one(self, data): pass
-    def find(self, query={}): return []
-    def update_one(self, filter, update): pass
-
-class MockDatabase:
-    def __getitem__(self, name): return MockCollection()
-
-class MockMongoClient:
-    def __init__(self, *args, **kwargs): pass
-    def __getitem__(self, name): return MockDatabase()
-    def close(self): pass
-
-# Replace real MongoDB with mock
-import sys
-sys.modules['pymongo'] = type(sys)('pymongo')
-sys.modules['pymongo'].MongoClient = MockMongoClient
-sys.modules['pymongo'].errors = type(sys)('errors')
-sys.modules['pymongo'].errors.ConfigurationError = Exception
-EOF
-        
-    - name: Start PPE App (MongoDB Bypass)
-      run: |
-        cd /home/sysadmin01/Desktop/PFE/safety
-        source .venv/bin/activate
-        export TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=False
-        
-        # Start with MongoDB bypass
-        echo "Starting PPE Detection without MongoDB..."
-        nohup python -c "
-# Import bypass first
-exec(open('/tmp/mongo_bypass.py').read())
-
-# Then start the app
-import os
-import sys
-sys.path.append('.')
-os.chdir('/home/sysadmin01/Desktop/PFE/safety')
-
-try:
-    from PPE_Detection.alarm_system.flaskr.main import run_flask
-    run_flask()
-except Exception as e:
-    print(f'App error: {e}')
-" > /tmp/ppe.log 2>&1 &
-        name: Simple PPE Test
+name: Simple PPE Test
 
 on:
   workflow_dispatch:
@@ -63,60 +9,65 @@ jobs:
     timeout-minutes: 10
     
     steps:
-    - name: Pre-cleanup
-      run: |
-        echo "Killing any existing processes..."
-        pkill -f "flaskr.main" || true
-        pkill -f "PPE_Detection" || true
-        lsof -ti:5000 | xargs kill -9 2>/dev/null || true
-        sleep 5
-        
-    - name: Check YOLO Model
-      run: |
-        cd /home/sysadmin01/Desktop/PFE/safety
-        WEIGHTS="/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt"
-        if [ -f "$WEIGHTS" ]; then
-          echo "Weights file found"
-          ls -lh "$WEIGHTS"
-        else
-          echo "Weights file not found"
-          find . -name "*.pt" -type f | head -5
-        fi
-        
-    - name: Start PPE App
-      run: |
-        cd /home/sysadmin01/Desktop/PFE/safety
-        source .venv/bin/activate
-        export TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=False
-        nohup uv run python -m PPE_Detection.alarm_system.flaskr.main --weights "/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt" > /tmp/ppe.log 2>&1 &
-        echo $! > /tmp/ppe.pid
-        echo "Started with PID: $(cat /tmp/ppe.pid)"
-        sleep 30
-        
-    - name: Check Status
-      run: |
-        if [ -f /tmp/ppe.pid ]; then
-          PID=$(cat /tmp/ppe.pid)
-          if kill -0 $PID 2>/dev/null; then
-            echo "App is running!"
-            ps -p $PID
-            echo "Last 10 lines of log:"
-            tail -10 /tmp/ppe.log
-          else
-            echo "App failed to start"
-            echo "Error log:"
-            cat /tmp/ppe.log
+      - name: Check Camera Access
+        run: |
+          echo "Checking camera devices..."
+          ls -la /dev/video* 2>/dev/null || echo "No video devices found"
+          
+      - name: Create Python Test Script
+        run: |
+          cat > /tmp/camera_test.py << 'EOF'
+          import cv2
+          from ultralytics import YOLO
+
+          print("Loading YOLO model...")
+          model = YOLO("/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt")
+
+          print("Opening camera...")
+          cap = cv2.VideoCapture(0)
+
+          if cap.isOpened():
+              print("Camera opened successfully")
+              ret, frame = cap.read()
+              if ret:
+                  print(f"Frame captured: {frame.shape}")
+                  cv2.imwrite("/tmp/camera_capture.jpg", frame)
+                  
+                  results = model(frame)
+                  detections = len(results[0].boxes) if results[0].boxes is not None else 0
+                  print(f"Detection completed: {detections} objects detected")
+                  
+                  annotated_frame = results[0].plot()
+                  cv2.imwrite("/tmp/ppe_detection.jpg", annotated_frame)
+                  print("PPE detection result saved")
+              else:
+                  print("Failed to capture frame")
+              cap.release()
+          else:
+              print("Cannot open camera")
+          EOF
+          
+      - name: Run Camera Test
+        run: |
+          cd /home/sysadmin01/Desktop/PFE/safety
+          source .venv/bin/activate
+          export TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=False
+          python /tmp/camera_test.py
+          
+      - name: Check Results
+        run: |
+          echo "Camera test results:"
+          ls -la /tmp/*.jpg 2>/dev/null || echo "No images captured"
+          
+          if [ -f /tmp/camera_capture.jpg ]; then
+            echo "Camera capture successful"
           fi
-        fi
-        
-    - name: Cleanup
-      if: always()
-      run: |
-        if [ -f /tmp/ppe.pid ]; then
-          PID=$(cat /tmp/ppe.pid)
-          kill $PID 2>/dev/null || true
-          sleep 2
-          kill -9 $PID 2>/dev/null || true
-        fi
-        pkill -f "flaskr.main" || true
-        rm -f /tmp/ppe.pid /tmp/ppe.log
+          
+          if [ -f /tmp/ppe_detection.jpg ]; then
+            echo "PPE detection successful"
+          fi
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f /tmp/*.jpg /tmp/camera_test.py
