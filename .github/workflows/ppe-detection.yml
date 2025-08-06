@@ -18,7 +18,16 @@ jobs:
         run: |
           cat > /tmp/camera_test.py << 'EOF'
           import cv2
+          import torch
           from ultralytics import YOLO
+          
+          # Fix PyTorch security issue
+          torch.serialization.add_safe_globals([
+              'ultralytics.nn.tasks.DetectionModel',
+              'ultralytics.nn.modules.block.C2f',
+              'ultralytics.nn.modules.conv.Conv',
+              'ultralytics.nn.modules.head.Detect'
+          ])
 
           print("Loading YOLO model...")
           model = YOLO("/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt")
