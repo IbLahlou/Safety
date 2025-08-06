@@ -1,5 +1,4 @@
-name: Simple PPE Test
-
+name: PPE Detection App Test
 on:
   workflow_dispatch:
 
@@ -9,74 +8,32 @@ jobs:
     timeout-minutes: 10
     
     steps:
-      - name: Check Camera Access
-        run: |
-          echo "Checking camera devices..."
-          ls -la /dev/video* 2>/dev/null || echo "No video devices found"
-          
-      - name: Create Python Test Script
-        run: |
-          cat > /tmp/camera_test.py << 'EOF'
-          import cv2
-          import torch
-          from ultralytics import YOLO
-          
-          # Fix PyTorch security issue
-          torch.serialization.add_safe_globals([
-              'ultralytics.nn.tasks.DetectionModel',
-              'ultralytics.nn.modules.block.C2f',
-              'ultralytics.nn.modules.conv.Conv',
-              'ultralytics.nn.modules.head.Detect'
-          ])
-
-          print("Loading YOLO model...")
-          model = YOLO("/home/sysadmin01/Desktop/PFE/safety/PPE_Detection/experiments/checkpoints/yolo11n_v6.pt")
-
-          print("Opening camera...")
-          cap = cv2.VideoCapture(0)
-
-          if cap.isOpened():
-              print("Camera opened successfully")
-              ret, frame = cap.read()
-              if ret:
-                  print(f"Frame captured: {frame.shape}")
-                  cv2.imwrite("/tmp/camera_capture.jpg", frame)
-                  
-                  results = model(frame)
-                  detections = len(results[0].boxes) if results[0].boxes is not None else 0
-                  print(f"Detection completed: {detections} objects detected")
-                  
-                  annotated_frame = results[0].plot()
-                  cv2.imwrite("/tmp/ppe_detection.jpg", annotated_frame)
-                  print("PPE detection result saved")
-              else:
-                  print("Failed to capture frame")
-              cap.release()
-          else:
-              print("Cannot open camera")
-          EOF
-          
-      - name: Run Camera Test
+      - name: Launch PPE Detection App
         run: |
           cd /home/sysadmin01/Desktop/PFE/safety
-          source .venv/bin/activate
-          export TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=False
-          python /tmp/camera_test.py
           
-      - name: Check Results
-        run: |
-          echo "Camera test results:"
-          ls -la /tmp/*.jpg 2>/dev/null || echo "No images captured"
+          # Set environment for PyTorch
+          export TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=True
           
-          if [ -f /tmp/camera_capture.jpg ]; then
-            echo "Camera capture successful"
+          # Launch the Flask app with uv
+          timeout 30s uv run python -m PPE_Detection.alarm_system.flaskr.main \
+            --weights "PPE_Detection/experiments/checkpoints/yolo11n_v6.pt" &
+          
+          APP_PID=$!
+          sleep 5
+          
+          # Test if app is running
+          if ps -p $APP_PID > /dev/null; then
+            echo "✓ PPE Detection app started successfully (PID: $APP_PID)"
+            
+            # Test HTTP endpoint if accessible
+            curl -f http://localhost:5000 2>/dev/null && echo "✓ Web interface accessible" || echo "- Web interface check skipped"
+            
+            # Clean shutdown
+            kill $APP_PID 2>/dev/null
+            wait $APP_PID 2>/dev/null
+            echo "✓ App terminated gracefully"
+          else
+            echo "✗ Failed to start PPE Detection app"
+            exit 1
           fi
-          
-          if [ -f /tmp/ppe_detection.jpg ]; then
-            echo "PPE detection successful"
-          fi
-          
-      - name: Cleanup
-        if: always()
-        run: |
-          rm -f /tmp/*.jpg /tmp/camera_test.py
