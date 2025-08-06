@@ -23,7 +23,7 @@ jobs:
 
       - name: Check Detection Models
         run: |
-          cd /home/sysladmin01/Desktop/PFE/safety/Intrusion_Detection/perspective_distorsion
+          cd /home/sysadmin01/Desktop/PFE/safety/Intrusion_Detection/perspective_distorsion
           echo "Checking for model files..."
           find . -name "*.pt" -o -name "*.pth" -o -name "*.pkl" -type f | head -10
           echo "App structure:"
