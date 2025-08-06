@@ -12,11 +12,9 @@ jobs:
         run: |
           cd /home/sysadmin01/Desktop/PFE/safety
           
-          # Set environment for PyTorch
-          export TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=True
-          
-          # Launch the Flask app with uv
-          timeout 30s uv run python -m PPE_Detection.alarm_system.flaskr.main \
+          # Launch the Flask app with uv and PyTorch environment
+          timeout 30s env TORCH_SERIALIZATION_UNSAFE_GLOBAL_DISABLE=True \
+            uv run python -m PPE_Detection.alarm_system.flaskr.main \
             --weights "PPE_Detection/experiments/checkpoints/yolo11n_v6.pt" &
           
           APP_PID=$!
